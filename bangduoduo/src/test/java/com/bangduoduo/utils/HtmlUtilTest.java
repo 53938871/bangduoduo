@@ -10,13 +10,13 @@ public class HtmlUtilTest {
 	@Test
 	public void should_return_encode_html(){
 		String expected = "&lt;script&gt;alert(&quot;ok&quot;)&lt;/script&gt;";
-		Assert.assertEquals(expected,HtmlUtil.encodeHtml(content));
+		Assert.assertEquals(expected,WebUtil.encodeHtml(content));
 	}
 	
 	@Test
 	public void should_return_decode_html(){
 		String encodeStr = "&lt;script&gt;alert(&quot;ok&quot;)&lt;/script&gt;";
-		Assert.assertEquals(content,HtmlUtil.decodeHtml(encodeStr));
+		Assert.assertEquals(content,WebUtil.decodeHtml(encodeStr));
 	}
 	
 }

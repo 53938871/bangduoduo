@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.bangduoduo.utils.FreemarkerUtil;
-import com.bangduoduo.utils.HtmlUtil;
+import com.bangduoduo.utils.WebUtil;
 import com.bangduoduo.web.form.DataSource;
 import com.bangduoduo.web.form.Field;
 
@@ -51,7 +51,7 @@ public class Component {
 			return;
 		}
 		if ("static".equals(dataSource.getType())){
-			Map<String,String> options = HtmlUtil.json2Options(dataSource.getValue());
+			Map<String,String> options = WebUtil.json2Options(dataSource.getValue());
 			propertyMap.put("options", options);
 			return;
 		} 
