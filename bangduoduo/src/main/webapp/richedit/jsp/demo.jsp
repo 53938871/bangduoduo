@@ -19,7 +19,8 @@ String htmlData = request.getParameter("content1") != null ? request.getParamete
 				cssPath : '../plugins/code/prettify.css',
 				//uploadJson : '../jsp/upload_json.jsp',
 				uploadJson : '/bangduoduo/upload/image',
-				fileManagerJson : '../jsp/file_manager_json.jsp',
+				//fileManagerJson : '../jsp/file_manager_json.jsp',
+				fileManagerJson : '/bangduoduo/upload/list',
 				allowFileManager : true,
 				afterCreate : function() {
 					var self = this;

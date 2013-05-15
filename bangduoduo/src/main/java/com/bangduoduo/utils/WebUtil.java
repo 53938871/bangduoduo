@@ -35,9 +35,16 @@ public class WebUtil {
 		return 	map;
 	}
 	
+	public static String getRootPath(HttpServletRequest request){
+		String dirName = request.getParameter("dir");
+		String rootPath = request.getSession().getServletContext().getRealPath("/") 
+		+ "attach\\" + dirName + "\\";
+		return rootPath;
+	}
+	
 	public static String getCurrentUploadPath(HttpServletRequest request){
-		String rootPath = request.getSession().getServletContext().getRealPath("/") + "attach\\";
-		rootPath = rootPath + formatDate("yyyy-MM-dd") + "\\";
+		
+		String rootPath = getRootPath(request) + formatDate("yyyy-MM-dd") + "\\";
 		System.out.println(rootPath);
 		File file = new File(rootPath);
 		if(!file.exists()){
@@ -46,8 +53,13 @@ public class WebUtil {
 		return rootPath;
 	}
 	
+	public static String getRootUrl(HttpServletRequest request){
+		String dirName = request.getParameter("dir");
+		return request.getContextPath() + "/attach/" + dirName +"/";
+	}
+	
 	public static String getCurrentFileUrl(HttpServletRequest request){
-		return request.getContextPath() + "/attached/";
+		return getRootUrl(request) +  formatDate("yyyy-MM-dd") + "/";
 	}
 	
 	public static String formatDate(String format){
