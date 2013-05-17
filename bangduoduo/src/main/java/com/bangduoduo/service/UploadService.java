@@ -2,19 +2,24 @@ package com.bangduoduo.service;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.json.simple.JSONObject;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import com.bangduoduo.upload.NameComparator;
 import com.bangduoduo.upload.SizeComparator;
@@ -22,111 +27,142 @@ import com.bangduoduo.upload.TypeComparator;
 import com.bangduoduo.upload.UploadMessage;
 import com.bangduoduo.utils.WebUtil;
 
-
-
 @Service
 public class UploadService {
-	private static final String[] IMG_TYPE = {"gif","jpg","png","bmp","jpeg"};
-	
-	public UploadMessage uploadFile(HttpServletRequest request,MultipartFile imgFile)  throws Exception {
-		UploadMessage message = new UploadMessage();
-		if(!isImage(imgFile)){
-			message.setMessage("Please choose image!");
-			message.setError(1);
-			return message;
-		}
+
+	private static final Map<String, String> extMap = new HashMap<String, String>();
+	static {
+		extMap.put("image", "gif,jpg,jpeg,png,bmp");
+		extMap.put("flash", "swf,flv");
+		extMap.put("media", "swf,flv,mp3,wav,wma,wmv,mid,avi,mpg,asf,rm,rmvb");
+		extMap.put("file", "doc,docx,xls,xlsx,ppt,htm,html,txt,zip,rar,gz,bz2");
+	}
+
+	public void uploadFile(HttpServletRequest request,
+			HttpServletResponse response, MultipartHttpServletRequest multiRequest) throws Exception {
+		List<MultipartFile> files = multiRequest.getFiles("imgFile");
+
 		String rootPath = WebUtil.getCurrentUploadPath(request);
 		String urlPath = WebUtil.getCurrentFileUrl(request);
-		
 		FileOutputStream fos = null;
-		try {
-			fos = new FileOutputStream(rootPath + imgFile.getOriginalFilename()); 
-			byte[] image = imgFile.getBytes();
-			fos.write(image);
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
+		Iterator<MultipartFile> itr = files.iterator();
+		PrintWriter out = response.getWriter();
+		while (itr.hasNext()) {
 			try {
-				fos.close();
-			} catch (IOException e) {
+
+				MultipartFile file = itr.next();
+				JSONObject message = getErrorJsonMessage(request,file);
+				if(message != null){
+					out.println(message.toJSONString());
+					return;
+				}
+				fos = new FileOutputStream(rootPath
+						+ file.getOriginalFilename());
+				byte[] image = file.getBytes();
+				fos.write(image);
+				
+				JSONObject obj = new JSONObject();
+				obj.put("error", 0);
+				obj.put("url", urlPath + file.getOriginalFilename());
+				out.println(obj.toJSONString());
+			} catch (Exception e) {
 				e.printStackTrace();
+			} finally {
+				try {
+					fos.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 		}
-		System.out.println(urlPath  + imgFile.getOriginalFilename());
-		message.setUrl(urlPath  + imgFile.getOriginalFilename());
-		message.setError(0);
-		return message;
 	}
-	
-	private boolean isImage(MultipartFile imgFile){
-		String imgName = imgFile.getOriginalFilename();
-		String ext = imgName.substring(imgName.lastIndexOf(".")+1);
-		boolean isImage = false;
-		for(String type : IMG_TYPE){
-			if(type.equalsIgnoreCase(ext)){
-				isImage = true;
+
+	private JSONObject getErrorJsonMessage(HttpServletRequest request,
+			MultipartFile file) {
+		JSONObject message = null;
+		String imgName = file.getOriginalFilename();
+		String ext = imgName.substring(imgName.lastIndexOf(".") + 1);
+		String fileType = request.getParameter("dir");
+
+		boolean isAllowed = false;
+		for (String type : extMap.get(fileType).split(",")) {
+			if (type.equalsIgnoreCase(ext)) {
+				isAllowed = true;
 				break;
 			}
-				
+
 		}
-		return isImage;
+		if (!isAllowed) {
+			message = new JSONObject();
+			message.put("error", 1);
+			message.put("message","Please choose correct file!");
+			
+		}
+		return message;
 	}
-	
-	public Object getFieldList(HttpServletRequest request){
-		List<Hashtable<String,Object>> fileList = new ArrayList<Hashtable<String,Object>>();
+
+	public Object getFieldList(HttpServletRequest request) {
+		List<Hashtable<String, Object>> fileList = new ArrayList<Hashtable<String, Object>>();
 		String rootPath = WebUtil.getRootPath(request);
 
-		String path = request.getParameter("path") != null ? request.getParameter("path") : "";
-		
+		String path = request.getParameter("path") != null ? request
+				.getParameter("path") : "";
+
 		String moveupDirPath = "";
 		if (!"".equals(path)) {
 			String str = rootPath.substring(0, rootPath.length() - 1);
-			moveupDirPath = str.lastIndexOf("/") >= 0 ? str.substring(0, str.lastIndexOf("/") + 1) : "";
+			moveupDirPath = str.lastIndexOf("/") >= 0 ? str.substring(0,
+					str.lastIndexOf("/") + 1) : "";
 		}
 		String currentUrl = WebUtil.getRootUrl(request) + path;
 		File currentPathFile = new File(rootPath + path);
-		
+
 		UploadMessage message = checkField(currentPathFile, path);
-		if(message != null){
+		if (message != null) {
 			return message;
 		}
-		
+
 		setFileInfo(fileList, currentPathFile);
-		
-		sortFileList(request,fileList);
-		
+
+		sortFileList(request, fileList);
+
 		JSONObject result = new JSONObject();
 		result.put("moveup_dir_path", moveupDirPath);
 		result.put("current_dir_path", path);
 		result.put("current_url", currentUrl);
 		result.put("total_count", fileList.size());
 		result.put("file_list", fileList);
-		
+
 		return result;
 	}
 
 	private void setFileInfo(List<Hashtable<String, Object>> fileList,
 			File currentPathFile) {
-		if(currentPathFile.listFiles() != null) {
+		if (currentPathFile.listFiles() != null) {
 			for (File file : currentPathFile.listFiles()) {
 				Hashtable<String, Object> hash = new Hashtable<String, Object>();
 				String fileName = file.getName();
-				if(file.isDirectory()) {
+				if (file.isDirectory()) {
 					hash.put("is_dir", true);
 					hash.put("has_file", (file.listFiles() != null));
 					hash.put("filesize", 0L);
 					hash.put("is_photo", false);
 					hash.put("filetype", "");
-				} else if(file.isFile()){
-					String fileExt = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+				} else if (file.isFile()) {
+					String fileExt = fileName.substring(
+							fileName.lastIndexOf(".") + 1).toLowerCase();
 					hash.put("is_dir", false);
 					hash.put("has_file", false);
 					hash.put("filesize", file.length());
-					hash.put("is_photo", Arrays.<String>asList(IMG_TYPE).contains(fileExt));
+					hash.put("is_photo",
+							Arrays.<String> asList(extMap.get("image").split(","))
+									.contains(fileExt));
 					hash.put("filetype", fileExt);
 				}
 				hash.put("filename", fileName);
-				hash.put("datetime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(file.lastModified()));
+				hash.put("datetime",
+						new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(file
+								.lastModified()));
 				fileList.add(hash);
 			}
 		}
@@ -143,16 +179,18 @@ public class UploadService {
 			message.setMessage("Parameter is not valid.");
 			return message;
 		}
-		
-		if(!currentPathFile.isDirectory()){
+
+		if (!currentPathFile.isDirectory()) {
 			message.setMessage("Directory does not exist.");
 			return message;
 		}
 		return null;
 	}
-	
-	private void sortFileList(HttpServletRequest request,List<Hashtable<String,Object>> fileList){
-		String order = request.getParameter("order") != null ?request.getParameter("order").toLowerCase() : "name";
+
+	private void sortFileList(HttpServletRequest request,
+			List<Hashtable<String, Object>> fileList) {
+		String order = request.getParameter("order") != null ? request
+				.getParameter("order").toLowerCase() : "name";
 		if ("size".equals(order)) {
 			Collections.sort(fileList, new SizeComparator());
 		} else if ("type".equals(order)) {
